@@ -1,6 +1,9 @@
 #include "vulkan_rhi.h"
 #include "vulkan_render_pass.h"
 #include "vulkan_frame_buffer.h"
+#include "vulkan_shader.h"
+#include "vulkan_pipeline_layout.h"
+#include "vulkan_descriptor_set_layout.h"
 #include "vulkan_image.h"
 #include <algorithm>
 
@@ -324,9 +327,15 @@ void VulkanRHI::destroySampler(ISampler* sampler) {
 
 // ──── Shader ────
 
-IShader* VulkanRHI::createShader(const ShaderDesc& /*desc*/) {
-    // TODO: Implement actual shader module creation
-    return nullptr;
+IShader* VulkanRHI::createShader(const ShaderDesc& desc) {
+    VkShaderModuleCreateInfo ci{};
+    ci.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    ci.codeSize = desc.codeSize;
+    ci.pCode = (const uint32_t*)desc.code;
+
+    VkShaderModule module = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateShaderModule(m_device, &ci, nullptr, &module));
+    return new VulkanShader(m_device, module, desc);
 }
 
 void VulkanRHI::destroyShader(IShader* shader) {
@@ -351,9 +360,33 @@ void VulkanRHI::destroyPipeline(IPipeline* pipeline) {
 
 // ──── PipelineLayout ────
 
-IPipelineLayout* VulkanRHI::createPipelineLayout(const PipelineLayoutDesc& /*desc*/) {
-    // TODO: Implement actual pipeline layout creation
-    return nullptr;
+IPipelineLayout* VulkanRHI::createPipelineLayout(const PipelineLayoutDesc& desc) {
+    std::vector<VkDescriptorSetLayout> layouts;
+    layouts.reserve(desc.setLayouts.size());
+    for (auto* sl : desc.setLayouts) {
+        layouts.push_back(static_cast<VulkanDescriptorSetLayout*>(sl)->getHandle());
+    }
+
+    std::vector<VkPushConstantRange> pcRanges;
+    pcRanges.reserve(desc.pushConstants.size());
+    for (const auto& pc : desc.pushConstants) {
+        VkPushConstantRange range{};
+        range.stageFlags = shaderStageToVk(pc.stage);
+        range.offset = pc.offset;
+        range.size = pc.size;
+        pcRanges.push_back(range);
+    }
+
+    VkPipelineLayoutCreateInfo ci{};
+    ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    ci.setLayoutCount = (uint32_t)layouts.size();
+    ci.pSetLayouts = layouts.data();
+    ci.pushConstantRangeCount = (uint32_t)pcRanges.size();
+    ci.pPushConstantRanges = pcRanges.data();
+
+    VkPipelineLayout layout = VK_NULL_HANDLE;
+    VK_CHECK(vkCreatePipelineLayout(m_device, &ci, nullptr, &layout));
+    return new VulkanPipelineLayout(m_device, layout, desc);
 }
 
 void VulkanRHI::destroyPipelineLayout(IPipelineLayout* layout) {
