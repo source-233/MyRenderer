@@ -1,9 +1,9 @@
 // https://github.com/CedricGuillemet/ImGuizmo
-// v 1.84 WIP
+// v1.92.5 WIP
 //
 // The MIT License(MIT)
 //
-// Copyright(c) 2021 Cedric Guillemet
+// Copyright(c) 2016-2026 Cedric Guillemet and contributors
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files(the "Software"), to deal
@@ -74,7 +74,9 @@ namespace ImCurveEdit
       // handle undo/redo thru this functions
       virtual void BeginEdit(int /*index*/) {}
       virtual void EndEdit() {}
+
+      virtual ~Delegate() = default;
    };
 
-   int IMGUI_API Edit(Delegate& delegate, const ImVec2& size, unsigned int id, const ImRect* clippingRect = NULL, ImVector<EditPoint>* selectedPoints = NULL);
+   int Edit(Delegate& delegate, const ImVec2& size, unsigned int id, const ImRect* clippingRect = NULL, ImVector<EditPoint>* selectedPoints = NULL);
 }

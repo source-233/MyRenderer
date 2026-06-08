@@ -17,6 +17,30 @@ add_subdirectory(thirdparty/glfw-3.4)
 add_subdirectory(thirdparty/glm)
 add_subdirectory(thirdparty/Vulkan-Headers)
 
+# ──── Dear ImGui ────
+
+set(IMGUI_SRC
+    thirdparty/imgui/imgui.cpp
+    thirdparty/imgui/imgui_draw.cpp
+    thirdparty/imgui/imgui_widgets.cpp
+    thirdparty/imgui/imgui_tables.cpp
+    thirdparty/imgui/backends/imgui_impl_glfw.cpp
+    thirdparty/imgui/backends/imgui_impl_vulkan.cpp
+)
+
+add_library(imgui STATIC ${IMGUI_SRC})
+
+target_include_directories(imgui PUBLIC
+    thirdparty/imgui
+    thirdparty/imgui/backends
+)
+
+target_link_libraries(imgui PUBLIC glfw Vulkan::Headers)
+
+add_subdirectory(thirdparty/imgui_ext/imguizmo)
+add_subdirectory(thirdparty/imgui_ext/implot)
+add_subdirectory(thirdparty/imgui_ext/misc)
+
 # ──── glslang (GLSL/HLSL to SPIR-V) ────
 
 set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "" FORCE)
@@ -38,6 +62,10 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     thirdparty/glad/include
     thirdparty/stb_image
     thirdparty/tinygltf
+    thirdparty/imgui_ext/imguizmo
+    thirdparty/imgui_ext/implot
+    thirdparty/imgui_ext/misc
+    thirdparty/imgui_ext/fonts
     src
 )
 
@@ -63,6 +91,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glslang::SPIRV
     glslang::glslang-default-resource-limits
     glfw
+    imgui
+    imguizmo
+    implot
+    imgui_misc
 )
 
 install(TARGETS ${PROJECT_NAME}
