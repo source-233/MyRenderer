@@ -68,8 +68,11 @@ vcpkg_installed/
 Testing/
 .cache/
 
-# ide project files
+# vscode project files
 .vscode/
+
+# Install output
+install/
 
 # Agent files
 AGENTS.md
