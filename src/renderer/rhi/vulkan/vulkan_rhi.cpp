@@ -38,6 +38,10 @@ bool VulkanRHI::createInstance(const RHIDesc& desc) {
     m_instanceExtensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
 #endif
 
+    if (desc.enableValidation) {
+        m_instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    }
+
     VkInstanceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
@@ -45,12 +49,10 @@ bool VulkanRHI::createInstance(const RHIDesc& desc) {
     createInfo.ppEnabledExtensionNames = m_instanceExtensions.data();
 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+    const char* layers[] = { "VK_LAYER_KHRONOS_validation" };
     if (desc.enableValidation) {
-        const char* layers[] = { "VK_LAYER_KHRONOS_validation" };
         createInfo.enabledLayerCount = 1;
         createInfo.ppEnabledLayerNames = layers;
-
-        m_instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
         debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         debugCreateInfo.messageSeverity =
@@ -213,6 +215,10 @@ void VulkanRHI::initBindlessHeap(uint32_t capacity) {
 }
 
 bool VulkanRHI::initialize(const RHIDesc& desc) {
+    if (volkInitialize() != VK_SUCCESS) {
+        fprintf(stderr, "Failed to load Vulkan loader\n");
+        return false;
+    }
     if (!createInstance(desc)) {
         fprintf(stderr, "Failed to create Vulkan instance\n");
         return false;

@@ -75,6 +75,13 @@ add_subdirectory(src/renderer/rhi/vulkan)
 add_subdirectory(src/renderer/rhi)
 add_subdirectory(src/renderer)
 
+# ──── Engine sources ────
+
+target_sources(${PROJECT_NAME} PRIVATE
+    src/core/engine/engine.cpp
+    src/platform/window.cpp
+)
+
 # ──── volk / VMA / SPIRV-Reflect ────
 
 target_sources(${PROJECT_NAME} PRIVATE
