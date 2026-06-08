@@ -4,7 +4,9 @@
 #include "vulkan_shader.h"
 #include "vulkan_pipeline_layout.h"
 #include "vulkan_descriptor_set_layout.h"
+#include "vulkan_buffer.h"
 #include "vulkan_image.h"
+#include "../rhi_buffer.h"
 #include <algorithm>
 
 // For now, all create/destroy methods are skeletons.
@@ -284,13 +286,61 @@ VulkanRHI::~VulkanRHI() {
 
 // ──── Buffer ────
 
-IBuffer* VulkanRHI::createBuffer(const BufferDesc& /*desc*/) {
-    // TODO: Implement actual Vulkan buffer creation
-    return nullptr;
+static uint32_t findMemoryType(VkPhysicalDevice physDev, uint32_t typeFilter, VkMemoryPropertyFlags props) {
+    VkPhysicalDeviceMemoryProperties memProps;
+    vkGetPhysicalDeviceMemoryProperties(physDev, &memProps);
+    for (uint32_t i = 0; i < memProps.memoryTypeCount; ++i) {
+        if ((typeFilter & (1 << i)) && (memProps.memoryTypes[i].propertyFlags & props) == props) {
+            return i;
+        }
+    }
+    return UINT32_MAX;
+}
+
+IBuffer* VulkanRHI::createBuffer(const BufferDesc& desc) {
+    VkBufferCreateInfo ci{};
+    ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    ci.size = desc.size;
+    ci.usage = bufferUsageToVk(desc.usage);
+    ci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateBuffer(m_device, &ci, nullptr, &buffer));
+
+    VkMemoryRequirements memReq;
+    vkGetBufferMemoryRequirements(m_device, buffer, &memReq);
+
+    VkMemoryPropertyFlags props = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    if (desc.hostVisible) {
+        props = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    }
+
+    uint32_t memType = findMemoryType(m_physicalDevice, memReq.memoryTypeBits, props);
+    if (memType == UINT32_MAX) {
+        vkDestroyBuffer(m_device, buffer, nullptr);
+        return nullptr;
+    }
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memReq.size;
+    allocInfo.memoryTypeIndex = memType;
+
+    VkMemoryAllocateFlagsInfo flagsInfo{};
+    if (desc.usage & BufferUsage::STORAGE) {
+        flagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+        flagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+        allocInfo.pNext = &flagsInfo;
+    }
+
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VK_CHECK(vkAllocateMemory(m_device, &allocInfo, nullptr, &memory));
+    VK_CHECK(vkBindBufferMemory(m_device, buffer, memory, 0));
+
+    return new VulkanBuffer(m_device, buffer, memory, desc);
 }
 
 void VulkanRHI::destroyBuffer(IBuffer* buffer) {
-    // TODO: Implement buffer destruction
     delete buffer;
 }
 

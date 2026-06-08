@@ -10,15 +10,18 @@ VulkanBuffer::~VulkanBuffer() {
 }
 
 void* VulkanBuffer::map() {
-    // TODO: Implement actual Vulkan buffer mapping
-    return nullptr;
+    void* data = nullptr;
+    vkMapMemory(m_device, m_memory, 0, VK_WHOLE_SIZE, 0, &data);
+    return data;
 }
 
 void VulkanBuffer::unmap() {
-    // TODO: Implement
+    vkUnmapMemory(m_device, m_memory);
 }
 
 uint64_t VulkanBuffer::getDeviceAddress() const {
-    // TODO: Implement using vkGetBufferDeviceAddress
-    return 0;
+    VkBufferDeviceAddressInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    info.buffer = m_buffer;
+    return vkGetBufferDeviceAddress(m_device, &info);
 }
