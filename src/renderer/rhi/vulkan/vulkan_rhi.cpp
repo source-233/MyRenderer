@@ -2,6 +2,7 @@
 #include "vulkan_render_pass.h"
 #include "vulkan_frame_buffer.h"
 #include "vulkan_shader.h"
+#include "vulkan_pipeline.h"
 #include "vulkan_pipeline_layout.h"
 #include "vulkan_descriptor_set_layout.h"
 #include "vulkan_buffer.h"
@@ -401,9 +402,123 @@ void VulkanRHI::destroyShader(IShader* shader) {
 
 // ──── Pipeline ────
 
-IPipeline* VulkanRHI::createGraphicsPipeline(const GraphicsPipelineDesc& /*desc*/) {
-    // TODO: Implement actual graphics pipeline creation
-    return nullptr;
+IPipeline* VulkanRHI::createGraphicsPipeline(const GraphicsPipelineDesc& desc) {
+    auto* vert = static_cast<VulkanShader*>(desc.vertexShader);
+    auto* frag = static_cast<VulkanShader*>(desc.fragmentShader);
+    auto* layout = static_cast<VulkanPipelineLayout*>(desc.layout);
+
+    VkPipelineShaderStageCreateInfo stages[2] = {};
+    stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    stages[0].module = vert->getModule();
+    stages[0].pName = "main";
+    stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    stages[1].module = frag->getModule();
+    stages[1].pName = "main";
+
+    VkPipelineVertexInputStateCreateInfo vertexInput{};
+    vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    std::vector<VkVertexInputBindingDescription> bindings;
+    for (const auto& vs : desc.vertexStreams) {
+        VkVertexInputBindingDescription b{};
+        b.binding = vs.binding;
+        b.stride = vs.stride;
+        b.inputRate = vs.inputRateInstance ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
+        bindings.push_back(b);
+    }
+
+    std::vector<VkVertexInputAttributeDescription> attributes;
+    for (const auto& va : desc.vertexAttributes) {
+        VkVertexInputAttributeDescription a{};
+        a.location = va.location;
+        a.binding = 0;
+        a.format = formatToVk(va.format);
+        a.offset = va.offset;
+        attributes.push_back(a);
+    }
+
+    vertexInput.vertexBindingDescriptionCount = (uint32_t)bindings.size();
+    vertexInput.pVertexBindingDescriptions = bindings.data();
+    vertexInput.vertexAttributeDescriptionCount = (uint32_t)attributes.size();
+    vertexInput.pVertexAttributeDescriptions = attributes.data();
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    VkPipelineViewportStateCreateInfo viewportState{};
+    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.viewportCount = 1;
+    viewportState.scissorCount = 1;
+
+    VkPipelineRasterizationStateCreateInfo raster{};
+    raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    raster.polygonMode = polygonModeToVk(desc.rasterization.polygonMode);
+    raster.cullMode = cullModeToVk(desc.rasterization.cullMode);
+    raster.frontFace = frontFaceToVk(desc.rasterization.frontFace);
+    raster.lineWidth = desc.rasterization.lineWidth;
+
+    VkPipelineMultisampleStateCreateInfo multisampling{};
+    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    VkPipelineDepthStencilStateCreateInfo depthStencil{};
+    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable = desc.depthStencil.depthTest;
+    depthStencil.depthWriteEnable = desc.depthStencil.depthWrite;
+    depthStencil.depthCompareOp = compareOpToVk(desc.depthStencil.depthCompareOp);
+    depthStencil.stencilTestEnable = desc.depthStencil.stencilTest;
+
+    VkPipelineColorBlendAttachmentState blendAtt{};
+    blendAtt.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                              VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+    std::vector<VkPipelineColorBlendAttachmentState> blendAttachments;
+    for (const auto& ba : desc.blendAttachments) {
+        VkPipelineColorBlendAttachmentState b{};
+        b.blendEnable = ba.blendEnable;
+        b.srcColorBlendFactor = blendFactorToVk(ba.srcColorBlendFactor);
+        b.dstColorBlendFactor = blendFactorToVk(ba.dstColorBlendFactor);
+        b.colorBlendOp = blendOpToVk(ba.colorBlendOp);
+        b.srcAlphaBlendFactor = blendFactorToVk(ba.srcAlphaBlendFactor);
+        b.dstAlphaBlendFactor = blendFactorToVk(ba.dstAlphaBlendFactor);
+        b.alphaBlendOp = blendOpToVk(ba.alphaBlendOp);
+        b.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                           VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        blendAttachments.push_back(b);
+    }
+
+    VkPipelineColorBlendStateCreateInfo colorBlend{};
+    colorBlend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlend.attachmentCount = (uint32_t)blendAttachments.size();
+    colorBlend.pAttachments = blendAttachments.data();
+
+    std::vector<VkDynamicState> dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    VkPipelineDynamicStateCreateInfo dynamic{};
+    dynamic.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamic.dynamicStateCount = (uint32_t)dynamicStates.size();
+    dynamic.pDynamicStates = dynamicStates.data();
+
+    VkGraphicsPipelineCreateInfo ci{};
+    ci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    ci.stageCount = 2;
+    ci.pStages = stages;
+    ci.pVertexInputState = &vertexInput;
+    ci.pInputAssemblyState = &inputAssembly;
+    ci.pViewportState = &viewportState;
+    ci.pRasterizationState = &raster;
+    ci.pMultisampleState = &multisampling;
+    ci.pDepthStencilState = &depthStencil;
+    ci.pColorBlendState = &colorBlend;
+    ci.pDynamicState = &dynamic;
+    ci.layout = layout->getHandle();
+    ci.renderPass = VK_NULL_HANDLE;
+
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &ci, nullptr, &pipeline));
+    return new VulkanPipeline(m_device, pipeline, layout->getHandle());
 }
 
 IPipeline* VulkanRHI::createComputePipeline(const ComputePipelineDesc& /*desc*/) {
