@@ -4,6 +4,8 @@
 #include "vulkan_descriptor_set.h"
 #include "vulkan_buffer.h"
 #include "vulkan_image.h"
+#include "vulkan_render_pass.h"
+#include "vulkan_frame_buffer.h"
 
 VulkanCommandList::~VulkanCommandList() {
     if (m_cmd && m_pool) {
@@ -172,14 +174,32 @@ void VulkanCommandList::copyImageToBuffer(IImage* src, IBuffer* dst,
                            vkDst->getHandle(), 1, &copy);
 }
 
-void VulkanCommandList::beginRenderPass(IRenderPass* /*renderPass*/,
-                                         IFrameBuffer* /*framebuffer*/,
-                                         const ClearColor* /*clearColors*/,
-                                         uint32_t /*clearColorCount*/,
-                                         ClearDepthStencil /*clearDepthStencil*/) {
-    // TODO: Implement when IRenderPass/IFrameBuffer interfaces are defined
+void VulkanCommandList::beginRenderPass(IRenderPass* renderPass,
+                                         IFrameBuffer* framebuffer,
+                                         const ClearColor* clearColors,
+                                         uint32_t clearColorCount,
+                                         ClearDepthStencil clearDepthStencil) {
+    auto* vkRP = static_cast<VulkanRenderPass*>(renderPass);
+    auto* vkFB = static_cast<VulkanFrameBuffer*>(framebuffer);
+
+    std::vector<VkClearValue> clearValues(clearColorCount + 1);
+    for (uint32_t i = 0; i < clearColorCount; ++i) {
+        clearValues[i].color = { { clearColors[i].r, clearColors[i].g, clearColors[i].b, clearColors[i].a } };
+    }
+    clearValues[clearColorCount].depthStencil = { clearDepthStencil.depth, clearDepthStencil.stencil };
+
+    VkRenderPassBeginInfo bi{};
+    bi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    bi.renderPass = vkRP->getHandle();
+    bi.framebuffer = vkFB->getHandle();
+    bi.renderArea.extent.width = vkFB->getWidth();
+    bi.renderArea.extent.height = vkFB->getHeight();
+    bi.clearValueCount = (uint32_t)clearValues.size();
+    bi.pClearValues = clearValues.data();
+
+    vkCmdBeginRenderPass(m_cmd, &bi, VK_SUBPASS_CONTENTS_INLINE);
 }
 
 void VulkanCommandList::endRenderPass() {
-    // TODO: Implement
+    vkCmdEndRenderPass(m_cmd);
 }

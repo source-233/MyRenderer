@@ -10,6 +10,8 @@ public:
     ~VulkanFrameBuffer() override;
 
     VkFramebuffer getHandle() const { return m_framebuffer; }
+    uint32_t getWidth() const { return m_desc.width; }
+    uint32_t getHeight() const { return m_desc.height; }
 
 private:
     VkDevice        m_device = VK_NULL_HANDLE;

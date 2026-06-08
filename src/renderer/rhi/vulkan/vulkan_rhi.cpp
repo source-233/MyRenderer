@@ -8,6 +8,8 @@
 #include "vulkan_buffer.h"
 #include "vulkan_image.h"
 #include "vulkan_swap_chain.h"
+#include "vulkan_command_list.h"
+#include "vulkan_fence.h"
 #include "../rhi_buffer.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
@@ -614,17 +616,6 @@ void VulkanRHI::updateDescriptorSet(IDescriptorSet* /*set*/, const DescriptorUpd
     // TODO: Implement
 }
 
-// ──── Fence ────
-
-IFence* VulkanRHI::createFence(bool /*signaled*/) {
-    // TODO: Implement
-    return nullptr;
-}
-
-void VulkanRHI::destroyFence(IFence* fence) {
-    delete fence;
-}
-
 // ──── SwapChain ────
 
 ISwapChain* VulkanRHI::createSwapChain(const SwapChainDesc& desc) {
@@ -813,8 +804,15 @@ void VulkanRHI::destroyFrameBuffer(IFrameBuffer* fb) {
 // ──── CommandList ────
 
 ICommandList* VulkanRHI::createCommandList() {
-    // TODO: Implement
-    return nullptr;
+    VkCommandBufferAllocateInfo ai{};
+    ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    ai.commandPool = m_commandPool;
+    ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    ai.commandBufferCount = 1;
+
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    VK_CHECK(vkAllocateCommandBuffers(m_device, &ai, &cmd));
+    return new VulkanCommandList(m_device, cmd, m_commandPool);
 }
 
 void VulkanRHI::destroyCommandList(ICommandList* cmd) {
@@ -823,10 +821,45 @@ void VulkanRHI::destroyCommandList(ICommandList* cmd) {
 
 // ──── Queue ────
 
-void VulkanRHI::submit(ICommandList* /*cmd*/, IFence* /*fence*/) {
-    // TODO: Implement
+void VulkanRHI::submit(ICommandList* cmdList, IFence* fence) {
+    auto* vkCmd = static_cast<VulkanCommandList*>(cmdList);
+    VkCommandBuffer cmd = vkCmd->getHandle();
+
+    VkSubmitInfo si{};
+    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    si.commandBufferCount = 1;
+    si.pCommandBuffers = &cmd;
+
+    VkFence vkFence = fence ? static_cast<VulkanFence*>(fence)->getHandle() : VK_NULL_HANDLE;
+    VK_CHECK(vkQueueSubmit(m_queues.graphicsQueue, 1, &si, vkFence));
 }
 
-void VulkanRHI::present(ISwapChain* /*swapChain*/) {
-    // TODO: Implement
+void VulkanRHI::present(ISwapChain* swapChain) {
+    auto* vkSC = static_cast<VulkanSwapChain*>(swapChain);
+    uint32_t imageIndex = vkSC->getCurrentImageIndex();
+
+    VkPresentInfoKHR pi{};
+    pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    pi.swapchainCount = 1;
+    VkSwapchainKHR sc = vkSC->getSwapChain();
+    pi.pSwapchains = &sc;
+    pi.pImageIndices = &imageIndex;
+
+    vkQueuePresentKHR(vkSC->getPresentQueue(), &pi);
+}
+
+// ──── Fence ────
+
+IFence* VulkanRHI::createFence(bool signaled) {
+    VkFenceCreateInfo ci{};
+    ci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    if (signaled) ci.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    VkFence fence = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateFence(m_device, &ci, nullptr, &fence));
+    return new VulkanFence(m_device, fence);
+}
+
+void VulkanRHI::destroyFence(IFence* fence) {
+    delete fence;
 }
