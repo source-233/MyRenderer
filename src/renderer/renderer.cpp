@@ -275,6 +275,7 @@ void Renderer::createFramebuffers() {
         viewDesc.aspect = ImageAspect::COLOR;
         IImageView* view = img->createView(viewDesc);
         if (!view) break;
+        m_framebufferViews.push_back(view);
 
         FrameBufferDesc fbDesc;
         fbDesc.renderPass = m_renderPass;
@@ -292,10 +293,13 @@ void Renderer::shutdown() {
     if (m_rhi) m_rhi->waitIdle();
 
     for (auto* fb : m_framebuffers) {
-        // Destroys the framebuffer and its image view attachment
         m_rhi->destroyFrameBuffer(fb);
     }
     m_framebuffers.clear();
+    for (auto* view : m_framebufferViews) {
+        m_rhi->destroyImageView(view);
+    }
+    m_framebufferViews.clear();
 
     delete m_fence;           m_fence = nullptr;
     delete m_commandList;     m_commandList = nullptr;

@@ -11,6 +11,7 @@ class IPipeline;
 class IPipelineLayout;
 class IShader;
 class IBuffer;
+class IImageView;
 class ICommandList;
 class IFence;
 class ISwapChain;
@@ -45,6 +46,7 @@ private:
     IFence*                 m_fence = nullptr;
 
     std::vector<IFrameBuffer*> m_framebuffers;
+    std::vector<IImageView*>   m_framebufferViews;
     uint32_t                m_width = 0;
     uint32_t                m_height = 0;
 };
