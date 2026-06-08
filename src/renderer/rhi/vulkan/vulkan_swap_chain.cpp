@@ -19,6 +19,7 @@ void VulkanSwapChain::setImages(VkImage* images, uint32_t count) {
         desc.format = m_format;
         desc.usage = ImageUsage::COLOR_ATTACHMENT | ImageUsage::SAMPLED;
         auto* img = new VulkanImage(m_device, images[i], VK_NULL_HANDLE, desc);
+        img->setOwnsImage(false);
         m_images.push_back(img);
     }
 }
@@ -32,6 +33,13 @@ bool VulkanSwapChain::present() {
 IImage* VulkanSwapChain::getCurrentImage() const {
     if (m_currentImage < m_images.size()) {
         return m_images[m_currentImage];
+    }
+    return nullptr;
+}
+
+IImage* VulkanSwapChain::getImage(uint32_t index) const {
+    if (index < m_images.size()) {
+        return m_images[index];
     }
     return nullptr;
 }

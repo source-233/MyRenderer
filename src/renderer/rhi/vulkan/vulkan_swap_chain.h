@@ -16,7 +16,9 @@ public:
 
     bool            present() override;
     uint32_t        getCurrentImageIndex() const override { return m_currentImage; }
+    uint32_t        getImageCount() const override { return (uint32_t)m_images.size(); }
     IImage*         getCurrentImage() const override;
+    IImage*         getImage(uint32_t index) const override;
     uint32_t        getWidth() const override { return m_width; }
     uint32_t        getHeight() const override { return m_height; }
     Format          getFormat() const override { return m_format; }

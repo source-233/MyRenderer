@@ -25,7 +25,9 @@ bool Engine::init(int /*argc*/, char* /*argv*/[]) {
     }
 
     m_renderer = new Renderer(m_rhi);
-    if (!m_renderer->init()) {
+    if (!m_renderer->init(m_window->getNativeHandle(),
+                          m_window->getWidth(),
+                          m_window->getHeight())) {
         fprintf(stderr, "Failed to initialize renderer\n");
         return false;
     }

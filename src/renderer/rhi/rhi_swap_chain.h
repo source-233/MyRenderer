@@ -18,7 +18,9 @@ public:
     virtual ~ISwapChain() = default;
     virtual bool            present() = 0;
     virtual uint32_t        getCurrentImageIndex() const = 0;
+    virtual uint32_t        getImageCount() const = 0;
     virtual IImage*         getCurrentImage() const = 0;
+    virtual IImage*         getImage(uint32_t index) const = 0;
     virtual uint32_t        getWidth() const = 0;
     virtual uint32_t        getHeight() const = 0;
     virtual Format          getFormat() const = 0;

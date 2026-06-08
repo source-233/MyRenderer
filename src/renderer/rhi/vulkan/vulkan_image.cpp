@@ -3,7 +3,7 @@
 // ──── VulkanImage ────
 
 VulkanImage::~VulkanImage() {
-    if (m_image) {
+    if (m_image && m_ownsImage) {
         vkDestroyImage(m_device, m_image, nullptr);
     }
     if (m_memory) {

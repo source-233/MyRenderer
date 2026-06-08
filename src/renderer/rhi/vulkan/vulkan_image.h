@@ -33,9 +33,12 @@ public:
 
     VkImage         getHandle() const { return m_image; }
 
+    void            setOwnsImage(bool owns) { m_ownsImage = owns; }
+
 private:
     VkDevice        m_device = VK_NULL_HANDLE;
     VkImage         m_image = VK_NULL_HANDLE;
     VkDeviceMemory  m_memory = VK_NULL_HANDLE;
     ImageDesc       m_desc{};
+    bool            m_ownsImage = true;
 };
