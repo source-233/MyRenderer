@@ -6,8 +6,11 @@
 #include "vulkan_descriptor_set_layout.h"
 #include "vulkan_buffer.h"
 #include "vulkan_image.h"
+#include "vulkan_swap_chain.h"
 #include "../rhi_buffer.h"
+#include <GLFW/glfw3.h>
 #include <algorithm>
+#include <climits>
 
 // For now, all create/destroy methods are skeletons.
 // The initialize() and shutdown() methods are fully implemented.
@@ -262,6 +265,10 @@ void VulkanRHI::shutdown() {
         vkDestroyDevice(m_device, nullptr);
         m_device = VK_NULL_HANDLE;
     }
+    if (m_surface) {
+        vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
+        m_surface = VK_NULL_HANDLE;
+    }
     if (m_debugMessenger) {
         auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)
             vkGetInstanceProcAddr(m_instance, "vkDestroyDebugUtilsMessengerEXT");
@@ -505,12 +512,99 @@ void VulkanRHI::destroyFence(IFence* fence) {
 
 // ──── SwapChain ────
 
-ISwapChain* VulkanRHI::createSwapChain(const SwapChainDesc& /*desc*/) {
-    // TODO: Implement
-    return nullptr;
+ISwapChain* VulkanRHI::createSwapChain(const SwapChainDesc& desc) {
+    auto* window = static_cast<GLFWwindow*>(desc.windowHandle);
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    VK_CHECK(glfwCreateWindowSurface(m_instance, window, nullptr, &surface));
+    m_surface = surface;
+
+    VkBool32 presentSupport = VK_FALSE;
+    vkGetPhysicalDeviceSurfaceSupportKHR(m_physicalDevice, m_queues.graphicsFamily, surface, &presentSupport);
+    if (!presentSupport) return nullptr;
+
+    // Surface capabilities
+    VkSurfaceCapabilitiesKHR caps;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physicalDevice, surface, &caps);
+
+    // Choose format
+    uint32_t fmtCount = 0;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, surface, &fmtCount, nullptr);
+    std::vector<VkSurfaceFormatKHR> formats(fmtCount);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, surface, &fmtCount, formats.data());
+
+    VkSurfaceFormatKHR surfaceFormat = formats[0];
+    for (const auto& f : formats) {
+        if (f.format == VK_FORMAT_B8G8R8A8_SRGB && f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            surfaceFormat = f;
+            break;
+        }
+    }
+
+    // Choose present mode
+    uint32_t pmCount = 0;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, surface, &pmCount, nullptr);
+    std::vector<VkPresentModeKHR> presentModes(pmCount);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, surface, &pmCount, presentModes.data());
+
+    VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    for (const auto& pm : presentModes) {
+        if (pm == VK_PRESENT_MODE_MAILBOX_KHR) {
+            presentMode = pm;
+            break;
+        }
+    }
+
+    // Extent
+    VkExtent2D extent = caps.currentExtent;
+    if (extent.width == UINT32_MAX) {
+        extent.width = std::clamp(desc.width, caps.minImageExtent.width, caps.maxImageExtent.width);
+        extent.height = std::clamp(desc.height, caps.minImageExtent.height, caps.maxImageExtent.height);
+    }
+
+    uint32_t imageCount = std::clamp(desc.bufferCount, caps.minImageCount, caps.maxImageCount);
+
+    VkSwapchainCreateInfoKHR ci{};
+    ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    ci.surface = surface;
+    ci.minImageCount = imageCount;
+    ci.imageFormat = surfaceFormat.format;
+    ci.imageColorSpace = surfaceFormat.colorSpace;
+    ci.imageExtent = extent;
+    ci.imageArrayLayers = 1;
+    ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    ci.preTransform = caps.currentTransform;
+    ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    ci.presentMode = presentMode;
+    ci.clipped = VK_TRUE;
+
+    VkSwapchainKHR swapChain = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateSwapchainKHR(m_device, &ci, nullptr, &swapChain));
+
+    // Get images
+    uint32_t imgCount = 0;
+    vkGetSwapchainImagesKHR(m_device, swapChain, &imgCount, nullptr);
+    std::vector<VkImage> images(imgCount);
+    vkGetSwapchainImagesKHR(m_device, swapChain, &imgCount, images.data());
+
+    Format fmt = Format::UNKNOWN;
+    for (auto f = Format::R8_UNORM; f <= Format::D32_SFLOAT_S8_UINT; f = (Format)((uint32_t)f + 1)) {
+        if (formatToVk(f) == surfaceFormat.format) {
+            fmt = f;
+            break;
+        }
+    }
+
+    auto* vkSC = new VulkanSwapChain(m_device, m_queues.presentQueue, swapChain, extent.width, extent.height, fmt);
+    vkSC->setImages(images.data(), imgCount);
+    return vkSC;
 }
 
 void VulkanRHI::destroySwapChain(ISwapChain* swapChain) {
+    if (m_surface) {
+        vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
+        m_surface = VK_NULL_HANDLE;
+    }
     delete swapChain;
 }
 

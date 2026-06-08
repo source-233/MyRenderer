@@ -8,9 +8,9 @@
 
 class VulkanSwapChain : public ISwapChain {
 public:
-    VulkanSwapChain(VkDevice device, VkSwapchainKHR swapChain,
+    VulkanSwapChain(VkDevice device, VkQueue presentQueue, VkSwapchainKHR swapChain,
                     uint32_t width, uint32_t height, Format format)
-        : m_device(device), m_swapChain(swapChain)
+        : m_device(device), m_presentQueue(presentQueue), m_swapChain(swapChain)
         , m_width(width), m_height(height), m_format(format) {}
     ~VulkanSwapChain() override;
 
@@ -22,9 +22,12 @@ public:
     Format          getFormat() const override { return m_format; }
 
     void            setImages(VkImage* images, uint32_t count);
+    VkSwapchainKHR  getSwapChain() const { return m_swapChain; }
+    VkQueue         getPresentQueue() const { return m_presentQueue; }
 
 private:
     VkDevice        m_device = VK_NULL_HANDLE;
+    VkQueue         m_presentQueue = VK_NULL_HANDLE;
     VkSwapchainKHR  m_swapChain = VK_NULL_HANDLE;
     uint32_t        m_width = 0;
     uint32_t        m_height = 0;

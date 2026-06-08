@@ -129,6 +129,7 @@ private:
     void initBindlessHeap(uint32_t capacity);
 
     VkInstance              m_instance = VK_NULL_HANDLE;
+    VkSurfaceKHR            m_surface = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
     VkPhysicalDevice        m_physicalDevice = VK_NULL_HANDLE;
     VkDevice                m_device = VK_NULL_HANDLE;
