@@ -1,4 +1,7 @@
 #include "vulkan_rhi.h"
+#include "vulkan_render_pass.h"
+#include "vulkan_frame_buffer.h"
+#include "vulkan_image.h"
 #include <algorithm>
 
 // For now, all create/destroy methods are skeletons.
@@ -426,6 +429,93 @@ ISwapChain* VulkanRHI::createSwapChain(const SwapChainDesc& /*desc*/) {
 
 void VulkanRHI::destroySwapChain(ISwapChain* swapChain) {
     delete swapChain;
+}
+
+// ──── RenderPass ────
+
+IRenderPass* VulkanRHI::createRenderPass(const RenderPassDesc& desc) {
+    std::vector<VkAttachmentDescription> attachments;
+    attachments.reserve(desc.attachments.size());
+    for (const auto& a : desc.attachments) {
+        VkAttachmentDescription vkAtt{};
+        vkAtt.format = formatToVk(a.format);
+        vkAtt.samples = VK_SAMPLE_COUNT_1_BIT;
+        vkAtt.loadOp = a.loadOpClear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+        vkAtt.storeOp = a.storeOpTrue ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        vkAtt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        vkAtt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        vkAtt.initialLayout = imageLayoutToVk(a.initialLayout);
+        vkAtt.finalLayout = imageLayoutToVk(a.finalLayout);
+        attachments.push_back(vkAtt);
+    }
+
+    std::vector<VkSubpassDescription> subpasses;
+    std::vector<std::vector<VkAttachmentReference>> colorRefs(desc.subpasses.size());
+    std::vector<VkAttachmentReference> dsRefs(desc.subpasses.size());
+    for (size_t i = 0; i < desc.subpasses.size(); ++i) {
+        VkSubpassDescription sp{};
+        sp.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+
+        for (auto idx : desc.subpasses[i].colorAttachments) {
+            VkAttachmentReference ref{};
+            ref.attachment = idx;
+            ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            colorRefs[i].push_back(ref);
+        }
+        sp.colorAttachmentCount = (uint32_t)colorRefs[i].size();
+        sp.pColorAttachments = colorRefs[i].data();
+
+        if (desc.subpasses[i].depthStencilAttachment != UINT32_MAX) {
+            dsRefs[i].attachment = desc.subpasses[i].depthStencilAttachment;
+            dsRefs[i].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            sp.pDepthStencilAttachment = &dsRefs[i];
+        }
+
+        subpasses.push_back(sp);
+    }
+
+    VkRenderPassCreateInfo ci{};
+    ci.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    ci.attachmentCount = (uint32_t)attachments.size();
+    ci.pAttachments = attachments.data();
+    ci.subpassCount = (uint32_t)subpasses.size();
+    ci.pSubpasses = subpasses.data();
+
+    VkRenderPass pass = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateRenderPass(m_device, &ci, nullptr, &pass));
+    return new VulkanRenderPass(m_device, pass, desc);
+}
+
+void VulkanRHI::destroyRenderPass(IRenderPass* pass) {
+    delete pass;
+}
+
+// ──── FrameBuffer ────
+
+IFrameBuffer* VulkanRHI::createFrameBuffer(const FrameBufferDesc& desc) {
+    auto* vkPass = static_cast<VulkanRenderPass*>(desc.renderPass);
+    std::vector<VkImageView> attachments;
+    for (auto* imgView : desc.attachments) {
+        auto* vkView = static_cast<VulkanImageView*>(imgView);
+        attachments.push_back(vkView->getHandle());
+    }
+
+    VkFramebufferCreateInfo ci{};
+    ci.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    ci.renderPass = vkPass->getHandle();
+    ci.attachmentCount = (uint32_t)attachments.size();
+    ci.pAttachments = attachments.data();
+    ci.width = desc.width;
+    ci.height = desc.height;
+    ci.layers = 1;
+
+    VkFramebuffer fb = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateFramebuffer(m_device, &ci, nullptr, &fb));
+    return new VulkanFrameBuffer(m_device, fb, desc);
+}
+
+void VulkanRHI::destroyFrameBuffer(IFrameBuffer* fb) {
+    delete fb;
 }
 
 // ──── CommandList ────

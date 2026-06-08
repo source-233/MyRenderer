@@ -37,6 +37,11 @@ class IFence;
 class ISwapChain;
 struct SwapChainDesc;
 
+class IRenderPass;
+class IFrameBuffer;
+struct RenderPassDesc;
+struct FrameBufferDesc;
+
 class ICommandList;
 
 struct RHIDesc {
@@ -107,6 +112,14 @@ public:
     // SwapChain
     virtual ISwapChain*     createSwapChain(const SwapChainDesc& desc) = 0;
     virtual void            destroySwapChain(ISwapChain* swapChain) = 0;
+
+    // RenderPass
+    virtual IRenderPass*    createRenderPass(const RenderPassDesc& desc) = 0;
+    virtual void            destroyRenderPass(IRenderPass* pass) = 0;
+
+    // FrameBuffer
+    virtual IFrameBuffer*   createFrameBuffer(const FrameBufferDesc& desc) = 0;
+    virtual void            destroyFrameBuffer(IFrameBuffer* fb) = 0;
 
     // CommandList
     virtual ICommandList*   createCommandList() = 0;

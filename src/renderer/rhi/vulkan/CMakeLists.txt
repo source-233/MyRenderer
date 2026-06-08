@@ -11,4 +11,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_command_list.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_fence.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_swap_chain.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_render_pass.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vulkan_frame_buffer.cpp
 )

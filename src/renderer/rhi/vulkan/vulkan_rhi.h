@@ -18,6 +18,11 @@ class VulkanCommandList;
 class VulkanFence;
 class VulkanSwapChain;
 
+struct RenderPassDesc;
+struct FrameBufferDesc;
+class IRenderPass;
+class IFrameBuffer;
+
 struct VulkanQueues {
     uint32_t graphicsFamily = UINT32_MAX;
     uint32_t computeFamily  = UINT32_MAX;
@@ -91,6 +96,14 @@ public:
     // SwapChain
     ISwapChain*     createSwapChain(const SwapChainDesc& desc) override;
     void            destroySwapChain(ISwapChain* swapChain) override;
+
+    // RenderPass
+    IRenderPass*    createRenderPass(const RenderPassDesc& desc) override;
+    void            destroyRenderPass(IRenderPass* pass) override;
+
+    // FrameBuffer
+    IFrameBuffer*   createFrameBuffer(const FrameBufferDesc& desc) override;
+    void            destroyFrameBuffer(IFrameBuffer* fb) override;
 
     // CommandList
     ICommandList*   createCommandList() override;
