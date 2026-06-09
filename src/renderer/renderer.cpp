@@ -39,64 +39,7 @@ void main() {
 
 // ──── glslang helpers ────
 
-static glslang_resource_t makeDefaultResources() {
-    glslang_resource_t r{};
-    r.max_lights = 32;
-    r.max_clip_planes = 6;
-    r.max_texture_units = 32;
-    r.max_texture_coords = 32;
-    r.max_vertex_attribs = 64;
-    r.max_vertex_uniform_components = 4096;
-    r.max_varying_floats = 64;
-    r.max_vertex_texture_image_units = 32;
-    r.max_combined_texture_image_units = 80;
-    r.max_texture_image_units = 32;
-    r.max_fragment_uniform_components = 4096;
-    r.max_draw_buffers = 32;
-    r.max_vertex_uniform_vectors = 128;
-    r.max_varying_vectors = 8;
-    r.max_fragment_uniform_vectors = 16;
-    r.max_vertex_output_vectors = 16;
-    r.max_fragment_input_vectors = 15;
-    r.min_program_texel_offset = -8;
-    r.max_program_texel_offset = 7;
-    r.max_clip_distances = 8;
-    r.max_compute_work_group_count_x = 65535;
-    r.max_compute_work_group_count_y = 65535;
-    r.max_compute_work_group_count_z = 65535;
-    r.max_compute_work_group_size_x = 1024;
-    r.max_compute_work_group_size_y = 1024;
-    r.max_compute_work_group_size_z = 64;
-    r.max_compute_uniform_components = 1024;
-    r.max_compute_texture_image_units = 16;
-    r.max_compute_image_uniforms = 16;
-    r.max_compute_atomic_counters = 8;
-    r.max_compute_atomic_counter_buffers = 1;
-    r.max_compute_atomic_counters = 8;
-    r.max_compute_atomic_counter_buffers = 1;
-    r.max_compute_atomic_counter_buffers = 1;
-    r.max_compute_atomic_counter_buffers = 1;
-    r.max_compute_image_uniforms = 16;
-    r.max_compute_texture_image_units = 16;
-    r.max_compute_uniform_components = 1024;
-    r.max_fragment_input_vectors = 15;
-    r.max_fragment_uniform_vectors = 16;
-    r.max_fragment_uniform_components = 4096;
-    r.max_combined_texture_image_units = 80;
-    r.max_texture_image_units = 32;
-    r.max_vertex_output_vectors = 16;
-    r.max_vertex_uniform_vectors = 128;
-    r.max_vertex_uniform_components = 4096;
-    r.max_varying_vectors = 8;
-    r.max_varying_floats = 64;
-    r.max_vertex_texture_image_units = 32;
-    r.max_vertex_attribs = 64;
-    r.max_texture_coords = 32;
-    r.max_texture_units = 32;
-    r.max_clip_planes = 6;
-    r.max_lights = 32;
-    return r;
-}
+#include <glslang/Public/resource_limits_c.h>
 
 static bool compileGlslToSpirv(const char* source, ShaderStage stage, std::vector<uint32_t>& spirv) {
     glslang_stage_t gStage;
@@ -119,7 +62,7 @@ static bool compileGlslToSpirv(const char* source, ShaderStage stage, std::vecto
     input.force_default_version_and_profile = 0;
     input.forward_compatible = 0;
     input.messages = (glslang_messages_t)(GLSLANG_MSG_DEFAULT_BIT | GLSLANG_MSG_SPV_RULES_BIT | GLSLANG_MSG_VULKAN_RULES_BIT);
-    input.resource = nullptr;
+    input.resource = glslang_default_resource();
 
     glslang_shader_t* shader = glslang_shader_create(&input);
     if (!shader) return false;
@@ -239,6 +182,7 @@ bool Renderer::init(void* windowHandle, uint32_t width, uint32_t height) {
     gpDesc.vertexShader = m_vertShader;
     gpDesc.fragmentShader = m_fragShader;
     gpDesc.layout = m_pipelineLayout;
+    gpDesc.renderPass = m_renderPass;
     gpDesc.renderTargetFormats[0] = swapFormat;
     gpDesc.renderTargetCount = 1;
     gpDesc.rasterization.cullMode = CullMode::NONE;
@@ -322,7 +266,6 @@ void Renderer::render(Scene*) {
     // Our framebuffers are ordered the same way as swap chain images
     // Map using a simple modulo
     IFrameBuffer* fb = m_framebuffers[fbIndex % m_framebuffers.size()];
-    IImage* img = m_swapChain->getCurrentImage();
 
     // Wait for previous frame
     m_fence->wait();

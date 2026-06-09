@@ -6,6 +6,7 @@
 
 class IShader;
 class IPipelineLayout;
+class IRenderPass;
 
 struct VertexAttributeDesc {
     uint32_t        location = 0;
@@ -54,6 +55,8 @@ struct GraphicsPipelineDesc {
     RasterizationDesc               rasterization;
     DepthStencilDesc                depthStencil;
     std::vector<BlendAttachmentDesc> blendAttachments;
+
+    IRenderPass*                    renderPass = nullptr;
 
     Format                          renderTargetFormats[8] = {};
     uint32_t                        renderTargetCount = 1;

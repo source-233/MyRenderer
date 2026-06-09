@@ -14,6 +14,7 @@
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <climits>
+#include <cstring>
 
 // For now, all create/destroy methods are skeletons.
 // The initialize() and shutdown() methods are fully implemented.
@@ -30,6 +31,18 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         fprintf(stderr, "[Vulkan] %s\n", data->pMessage);
     }
     return VK_FALSE;
+}
+
+static bool hasValidationLayer() {
+    uint32_t count = 0;
+    vkEnumerateInstanceLayerProperties(&count, nullptr);
+    std::vector<VkLayerProperties> layers(count);
+    vkEnumerateInstanceLayerProperties(&count, layers.data());
+    for (const auto& l : layers) {
+        if (strcmp(l.layerName, "VK_LAYER_KHRONOS_validation") == 0)
+            return true;
+    }
+    return false;
 }
 
 bool VulkanRHI::createInstance(const RHIDesc& desc) {
@@ -52,7 +65,8 @@ bool VulkanRHI::createInstance(const RHIDesc& desc) {
     m_instanceExtensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
 #endif
 
-    if (desc.enableValidation) {
+    m_validationEnabled = desc.enableValidation && hasValidationLayer();
+    if (m_validationEnabled) {
         m_instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
 
@@ -63,10 +77,10 @@ bool VulkanRHI::createInstance(const RHIDesc& desc) {
     createInfo.ppEnabledExtensionNames = m_instanceExtensions.data();
 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-    const char* layers[] = { "VK_LAYER_KHRONOS_validation" };
-    if (desc.enableValidation) {
+    if (m_validationEnabled) {
+        const char* layer = "VK_LAYER_KHRONOS_validation";
         createInfo.enabledLayerCount = 1;
-        createInfo.ppEnabledLayerNames = layers;
+        createInfo.ppEnabledLayerNames = &layer;
 
         debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
         debugCreateInfo.messageSeverity =
@@ -237,9 +251,8 @@ bool VulkanRHI::initialize(const RHIDesc& desc) {
         fprintf(stderr, "Failed to create Vulkan instance\n");
         return false;
     }
-    if (!setupDebugMessenger()) {
+    if (m_validationEnabled && !setupDebugMessenger()) {
         fprintf(stderr, "Failed to setup debug messenger\n");
-        // Non-fatal
     }
     if (!pickPhysicalDevice()) {
         fprintf(stderr, "Failed to find a Vulkan physical device\n");
@@ -516,7 +529,11 @@ IPipeline* VulkanRHI::createGraphicsPipeline(const GraphicsPipelineDesc& desc) {
     ci.pColorBlendState = &colorBlend;
     ci.pDynamicState = &dynamic;
     ci.layout = layout->getHandle();
-    ci.renderPass = VK_NULL_HANDLE;
+    if (desc.renderPass) {
+        ci.renderPass = static_cast<VulkanRenderPass*>(desc.renderPass)->getHandle();
+    } else {
+        ci.renderPass = VK_NULL_HANDLE;
+    }
 
     VkPipeline pipeline = VK_NULL_HANDLE;
     VK_CHECK(vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &ci, nullptr, &pipeline));

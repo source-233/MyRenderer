@@ -142,4 +142,5 @@ private:
 
     std::vector<const char*> m_instanceExtensions;
     std::vector<const char*> m_deviceExtensions;
+    bool m_validationEnabled = false;
 };
